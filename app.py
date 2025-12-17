@@ -275,7 +275,7 @@ def vista_inicio():
     st.markdown("Bienvenido. Genera tus reportes desde el menú lateral.")
 
 def vista_reporte():
-    st.title("📊 Antigüedad de Saldos")
+    st.title("📊 CXP Antigüedad de Saldos")
     st.divider()
 
     col1, col2 = st.columns([1, 3])
@@ -320,4 +320,5 @@ def main():
     opciones[selection]()
 
 if __name__ == "__main__":
+
     main()
