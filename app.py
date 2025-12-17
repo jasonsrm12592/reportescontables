@@ -315,10 +315,11 @@ def vista_reporte():
 
 def main():
     st.sidebar.title("Menú")
-    opciones = {"Inicio": vista_inicio, "Antigüedad de Saldos": vista_reporte}
+    opciones = {"Inicio": vista_inicio, "CXP Antigüedad de Saldos": vista_reporte}
     selection = st.sidebar.radio("Ir a:", list(opciones.keys()))
     opciones[selection]()
 
 if __name__ == "__main__":
 
     main()
+
