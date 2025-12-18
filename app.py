@@ -31,13 +31,17 @@ def fetch_data(uid, models, db, password, cutoff_date):
     # 1. Traer líneas contables (SOLO COMPAÑÍA 1)
     domain = [
         ('parent_state', '=', 'posted'),
-        ('company_id', '=', 1),  # <--- FILTRO AGREGADO: Solo Company ID 1
+        ('company_id', '=', 1),
         ('account_type', '=', 'liability_payable'),
         ('amount_residual', '!=', 0),
         ('move_id.move_type', 'in', ['in_invoice', 'in_refund']),
     ]
     
-    fields = ['partner_id', 'date_maturity', 'date', 'ref', 'amount_residual', 'currency_id', 'move_id']
+    # AGREGADO: 'amount_residual_currency' para leer el monto en dólares
+    fields = ['partner_id', 'date_maturity', 'date', 'ref', 
+              'amount_residual', 'amount_residual_currency', # <--- NUEVO CAMPO
+              'currency_id', 'move_id']
+    
     lines = models.execute_kw(db, uid, password, 'account.move.line', 'search_read', [domain], {'fields': fields})
     
     if not lines: return pd.DataFrame()
@@ -67,12 +71,24 @@ def fetch_data(uid, models, db, password, cutoff_date):
     df['date_maturity'] = pd.to_datetime(df['date_maturity'], errors='coerce')
     df = df.dropna(subset=['date_maturity'])
 
-    # 4. Signos
+    # 4. LÓGICA CORREGIDA: Usar Importe en Moneda Original
     def calcular_neto(row):
         tipo = type_map.get(row['move_id_int'], 'in_invoice')
-        monto = abs(row['amount_residual'])
-        if tipo == 'in_refund': return -monto
-        return monto
+        
+        # PASO CLAVE:
+        # Si 'amount_residual_currency' es diferente de 0, significa que es una factura en otra moneda (o la misma explícita).
+        # Usamos ese valor. Si es 0, usamos el 'amount_residual' (colones por defecto).
+        if row['amount_residual_currency'] and row['amount_residual_currency'] != 0:
+            monto_base = row['amount_residual_currency']
+        else:
+            monto_base = row['amount_residual']
+            
+        monto_abs = abs(monto_base)
+        
+        # Aplicar signo negativo si es Nota de Crédito
+        if tipo == 'in_refund': 
+            return -monto_abs
+        return monto_abs
 
     df['amount_residual_neto'] = df.apply(calcular_neto, axis=1)
 
@@ -318,5 +334,6 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
