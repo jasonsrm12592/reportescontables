@@ -28,9 +28,10 @@ def get_odoo_connection():
         return None, None, None, None
 
 def fetch_data(uid, models, db, password, cutoff_date):
-    # 1. Traer líneas contables
+    # 1. Traer líneas contables (SOLO COMPAÑÍA 1)
     domain = [
         ('parent_state', '=', 'posted'),
+        ('company_id', '=', 1),  # <--- FILTRO AGREGADO: Solo Company ID 1
         ('account_type', '=', 'liability_payable'),
         ('amount_residual', '!=', 0),
         ('move_id.move_type', 'in', ['in_invoice', 'in_refund']),
@@ -116,7 +117,7 @@ def detect_currency_in_obs(obs_text):
 
 def enrich_with_smart_banks_split(df, models, uid, db, password):
     """
-    Busca bancos priorizando lo que dice en 'Observaciones'.
+    Busca bancos priorizando 'Observaciones' y filtrando por Compañía 1 o Compartidos.
     """
     if df.empty: return df
     
@@ -127,7 +128,12 @@ def enrich_with_smart_banks_split(df, models, uid, db, password):
         df['Notas Banco'] = ''
         return df
 
-    bank_domain = [('partner_id', 'in', partner_ids)]
+    # FILTRO: Partner correcto Y (Compañía 1 O Compañía "Vacía/Compartida")
+    bank_domain = [
+        ('partner_id', 'in', partner_ids),
+        '|', ('company_id', '=', False), ('company_id', '=', 1) # <--- FILTRO NUEVO
+    ]
+    
     bank_fields = ['partner_id', 'bank_id', 'acc_number', 'x_studio_observacin', 'currency_id']
     banks_data = models.execute_kw(db, uid, password, 'res.partner.bank', 'search_read', [bank_domain], {'fields': bank_fields})
     
@@ -136,23 +142,19 @@ def enrich_with_smart_banks_split(df, models, uid, db, password):
     for b in banks_data:
         p_id = b['partner_id'][0]
         
-        # Datos crudos
         banco_name = b['bank_id'][1] if b['bank_id'] else "Banco"
         cuenta_num = b['acc_number'] or ""
         obs_txt = b.get('x_studio_observacin') or ""
         
-        # 1. Detectar moneda en OBSERVACIONES (Prioridad Alta)
         moneda_obs = detect_currency_in_obs(obs_txt)
-        
-        # 2. Detectar moneda del CAMPO OFICIAL (Prioridad Media)
         moneda_oficial = normalize_currency_code(b['currency_id'][1] if b['currency_id'] else None)
         
         bank_obj = {
             'banco': banco_name,
             'cuenta': cuenta_num,
             'obs': obs_txt,
-            'moneda_obs': moneda_obs,      # Lo que dice la observación
-            'moneda_oficial': moneda_oficial # Lo que dice Odoo
+            'moneda_obs': moneda_obs,
+            'moneda_oficial': moneda_oficial
         }
         
         if p_id not in banks_by_partner: banks_by_partner[p_id] = []
@@ -160,7 +162,6 @@ def enrich_with_smart_banks_split(df, models, uid, db, password):
 
     def get_best_bank_columns(row):
         p_id = row['Partner_ID']
-        # Moneda de la factura actual
         moneda_factura = normalize_currency_code(row['Moneda'])
         
         default_res = pd.Series(['', '', ''], index=['Banco', 'Cuenta', 'Notas Banco'])
@@ -170,29 +171,25 @@ def enrich_with_smart_banks_split(df, models, uid, db, password):
             
         mis_bancos = banks_by_partner[p_id]
         
-        # --- LÓGICA DE SELECCIÓN (JERARQUÍA) ---
-        
         # 1. PRIORIDAD MÁXIMA: Coincidencia por OBSERVACIONES
-        # Si la factura es USD y la observación dice "Dolares" -> BINGO.
         matches_obs = [b for b in mis_bancos if b['moneda_obs'] == moneda_factura]
         if matches_obs:
             best = matches_obs[0]
             return pd.Series([best['banco'], best['cuenta'], best['obs']], index=['Banco', 'Cuenta', 'Notas Banco'])
 
-        # 2. PRIORIDAD MEDIA: Coincidencia por CAMPO MONEDA (currency_id)
-        # Si no decía nada en observaciones, confiamos en la configuración del banco en Odoo
+        # 2. PRIORIDAD MEDIA: Coincidencia por CAMPO MONEDA
         matches_field = [b for b in mis_bancos if b['moneda_oficial'] == moneda_factura]
         if matches_field:
             best = matches_field[0]
             return pd.Series([best['banco'], best['cuenta'], best['obs']], index=['Banco', 'Cuenta', 'Notas Banco'])
         
-        # 3. PRIORIDAD BAJA: Bancos "Comodín" (Sin moneda definida en ningún lado)
+        # 3. PRIORIDAD BAJA: Comodines
         matches_any = [b for b in mis_bancos if b['moneda_obs'] is None and b['moneda_oficial'] is None]
         if matches_any:
             best = matches_any[0]
             return pd.Series([best['banco'], best['cuenta'], best['obs']], index=['Banco', 'Cuenta', 'Notas Banco'])
         
-        # 4. ÚLTIMO RECURSO: El primero que haya (mejor que nada)
+        # 4. ÚLTIMO RECURSO
         if mis_bancos:
              best = mis_bancos[0]
              return pd.Series([best['banco'], best['cuenta'], best['obs']], index=['Banco', 'Cuenta', 'Notas Banco'])
@@ -203,7 +200,6 @@ def enrich_with_smart_banks_split(df, models, uid, db, password):
     df = pd.concat([df, bank_cols], axis=1)
     
     return df
-
 # ==========================================
 # 2. GENERACIÓN DE EXCEL
 # ==========================================
@@ -322,4 +318,5 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
