@@ -29,6 +29,7 @@ def get_odoo_connection():
 
 def fetch_data(uid, models, db, password, cutoff_date):
     # 1. Traer líneas contables (SOLO COMPAÑÍA 1)
+    # QUITAMOS 'x_studio_es_reintegro' de aquí porque suele estar en la cabecera, no en la línea.
     domain = [
         ('parent_state', '=', 'posted'),
         ('company_id', '=', 1),
@@ -37,10 +38,9 @@ def fetch_data(uid, models, db, password, cutoff_date):
         ('move_id.move_type', 'in', ['in_invoice', 'in_refund']),
     ]
     
-    # AGREGADO: 'x_studio_es_reintegro' para detectar Cajas Chicas
     fields = ['partner_id', 'date_maturity', 'date', 'ref', 
               'amount_residual', 'amount_residual_currency', 
-              'currency_id', 'move_id', 'x_studio_es_reintegro'] 
+              'currency_id', 'move_id'] # <--- Quitamos el campo de Studio de esta lista
     
     lines = models.execute_kw(db, uid, password, 'account.move.line', 'search_read', [domain], {'fields': fields})
     
@@ -48,26 +48,36 @@ def fetch_data(uid, models, db, password, cutoff_date):
 
     df = pd.DataFrame(lines)
     
-    # 2. Identificar tipos (Factura vs NC)
+    # 2. CONSULTA ADICIONAL A LA CABECERA (account.move)
+    # Aquí buscamos el campo de Reintegro y el Tipo de Documento
     move_ids_list = [m[0] for m in df['move_id'] if m]
     move_ids_unique = list(set(move_ids_list))
     
     type_map = {}
+    reintegro_map = {}
+    
     if move_ids_unique:
+        # Pedimos los campos a la cabecera
+        move_fields = ['move_type', 'x_studio_es_reintegro']
         moves_data = models.execute_kw(db, uid, password, 'account.move', 'search_read', 
                                        [[('id', 'in', move_ids_unique)]], 
-                                       {'fields': ['move_type']})
-        type_map = {m['id']: m['move_type'] for m in moves_data}
+                                       {'fields': move_fields})
+        
+        # Mapeamos los resultados
+        for m in moves_data:
+            type_map[m['id']] = m['move_type']
+            # Ojo: x_studio_es_reintegro podría no venir si el campo no existe en algunas facturas viejas
+            reintegro_map[m['id']] = m.get('x_studio_es_reintegro', False)
 
-    # 3. Limpieza
+    # 3. Limpieza y Mapeo
     df['Proveedor'] = df['partner_id'].apply(lambda x: x[1] if x else 'Sin Proveedor')
     df['Partner_ID'] = df['partner_id'].apply(lambda x: x[0] if x else False)
     df['Moneda'] = df['currency_id'].apply(lambda x: x[1] if x else '')
     df['ref'] = df['ref'].apply(lambda x: x if x else '-')
     df['move_id_int'] = df['move_id'].apply(lambda x: x[0] if x else False)
     
-    # Manejo de nulos en campo booleano
-    df['x_studio_es_reintegro'] = df['x_studio_es_reintegro'].fillna(False)
+    # APLICAMOS EL MAPEO DEL CAMPO STUDIO AL DATAFRAME
+    df['x_studio_es_reintegro'] = df['move_id_int'].map(reintegro_map).fillna(False)
     
     # Corrección Fechas Vacías
     df['date_maturity'] = df.apply(lambda row: row['date'] if not row['date_maturity'] else row['date_maturity'], axis=1)
@@ -369,3 +379,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
