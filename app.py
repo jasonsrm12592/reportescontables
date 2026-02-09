@@ -371,9 +371,149 @@ def vista_reporte():
                     else:
                         st.warning("No hay datos.")
 
+# ==========================================
+# 4. REPORTE VENTAS RETAIL
+# ==========================================
+
+def fetch_retail_sales(uid, models, db, password, start_date, end_date):
+    """
+    Trae facturas y notas de crédito de clientes (out_invoice, out_refund)
+    FILTRADO POR VENDEDORES ESPECÍFICOS RETAIL.
+    Lista: ALEJANDRO HERNANDEZ , GREIVIN VASQUEZ , JACKSON ABARCA , JOHNSEN MONTERO , LEONARDO CORRALES , SEBASTIAN CARRILLO
+    """
+    
+    # 1. Traer TODAS las facturas en el rango (Company 1, Posted)
+    domain_moves = [
+        ('state', '=', 'posted'),
+        ('company_id', '=', 1),
+        ('move_type', 'in', ['out_invoice', 'out_refund']),
+        ('invoice_date', '>=', str(start_date)),
+        ('invoice_date', '<=', str(end_date)),
+    ]
+    
+    fields_moves = ['name', 'invoice_date', 'invoice_user_id', 'amount_untaxed_signed', 'move_type', 'partner_id']
+    
+    moves = models.execute_kw(db, uid, password, 'account.move', 'search_read', [domain_moves], {'fields': fields_moves})
+    
+    if not moves:
+        return pd.DataFrame()
+        
+    df = pd.DataFrame(moves)
+    
+    # 2. Filtrar por Vendedor (Case Insensitive Match)
+    # Lista de vendedores Retail
+    vendedores_retail = [
+        "ALEJANDRO HERNANDEZ", 
+        "GREIVIN VASQUEZ", 
+        "JACKSON ABARCA", 
+        "JOHNSEN MONTERO", 
+        "LEONARDO CORRALES", 
+        "SEBASTIAN CARRILLO"
+    ]
+    
+    # Normalizamos para comparar (mayúsculas)
+    vendedores_retail_norm = [v.upper() for v in vendedores_retail]
+    
+    def es_vendedor_retail(user_tuple):
+        if not user_tuple: return False
+        # user_tuple es (id, "Nombre")
+        nombre = str(user_tuple[1]).upper()
+        # Verificamos si alguno de los nombres retail está contenido en el nombre del vendedor Odoo
+        # Usamos coincidencia exacta o substring según preferencia. 
+        # Dado que los nombres parecen completos, intentaremos coincidencia parcial fuerte o exacta.
+        for v in vendedores_retail_norm:
+            if v in nombre:
+                return True
+        return False
+
+    df['Vendedor_Raw'] = df['invoice_user_id']
+    df = df[df['Vendedor_Raw'].apply(es_vendedor_retail)].copy()
+    
+    if df.empty:
+        return pd.DataFrame()
+    
+    # 3. Procesamiento
+    df['Vendedor'] = df['invoice_user_id'].apply(lambda x: x[1] if x else 'Sin Vendedor')
+    df['Cliente'] = df['partner_id'].apply(lambda x: x[1] if x else 'Sin Cliente')
+    df['Fecha'] = pd.to_datetime(df['invoice_date'])
+    df['Mes'] = df['Fecha'].dt.strftime('%Y-%m') # Agrupación Mensual
+    
+    # Renombrar para visualización
+    df = df.rename(columns={
+        'name': 'Número Factura',
+        'amount_untaxed_signed': 'Monto (CRC) Antes Imp.'
+    })
+    
+    return df
+
+def vista_ventas_retail():
+    st.title("🛍️ Ventas Netas Retail")
+    st.markdown("Facturas y Notas de Crédito confirmadas **sin cuenta analítica**.")
+    st.divider()
+
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        st.subheader("Filtros")
+        
+        # Default: Mes actual
+        today = datetime.date.today()
+        first_day = today.replace(day=1)
+        
+        f_inicio = st.date_input("Fecha Inicio", first_day)
+        f_fin = st.date_input("Fecha Fin", today)
+        
+        btn = st.button("Generar Reporte Retail", type="primary")
+
+    with col2:
+        if btn:
+            with st.spinner('Consultando Odoo...'):
+                uid, models, db, pwd = get_odoo_connection()
+                if uid:
+                    df = fetch_retail_sales(uid, models, db, pwd, f_inicio, f_fin)
+                    
+                    if not df.empty:
+                        # KPI Totals
+                        total_ventas = df['Monto (CRC) Antes Imp.'].sum()
+                        
+                        st.metric(label="Total Ventas Netas (Sin Impuestos)", value=f"₡ {total_ventas:,.2f}")
+                        
+                        # Agrupado por Mes
+                        st.subheader("Desglose Mensual")
+                        df_grouped = df.groupby('Mes')['Monto (CRC) Antes Imp.'].sum().reset_index()
+                        st.dataframe(df_grouped.style.format({'Monto (CRC) Antes Imp.': "₡ {:,.2f}"}), use_container_width=True)
+                        
+                        # Detalle
+                        st.subheader("Detalle de Facturas")
+                        cols_view = ['Fecha', 'Mes', 'Número Factura', 'Cliente', 'Vendedor', 'Monto (CRC) Antes Imp.']
+                        st.dataframe(
+                            df[cols_view].sort_values(by='Fecha', ascending=False)
+                            .style.format({'Monto (CRC) Antes Imp.': "{:,.2f}"}),
+                            use_container_width=True
+                        )
+                        
+                        # Excel Download
+                        output = io.BytesIO()
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            df[cols_view].to_excel(writer, index=False, sheet_name='Detalle Retail')
+                            df_grouped.to_excel(writer, index=False, sheet_name='Resumen Mensual')
+                            
+                        st.download_button(
+                            "📥 Descargar Excel Retail", 
+                            output.getvalue(), 
+                            f"Ventas_Retail_{f_inicio}_al_{f_fin}.xlsx", 
+                            "application/vnd.ms-excel"
+                        )
+                        
+                    else:
+                        st.info("No se encontraron registros para los filtros seleccionados (o todas las facturas tienen cuenta analítica).")
+
 def main():
     st.sidebar.title("Menú")
-    opciones = {"Inicio": vista_inicio, "Antigüedad de Saldos": vista_reporte}
+    opciones = {
+        "Inicio": vista_inicio, 
+        "Antigüedad de Saldos": vista_reporte,
+        "Ventas Retail": vista_ventas_retail
+    }
     selection = st.sidebar.radio("Ir a:", list(opciones.keys()))
     opciones[selection]()
 
