@@ -584,13 +584,19 @@ def fetch_wip_data(uid, models, db, password, end_date):
     # Hicimos groupby solo por ID, ahora buscamos los nombres
     # project_ids son IDs de analytic.account
     try:
+        # Include archived accounts to resolve names for closed projects
         analytic_accounts = models.execute_kw(db, uid, password, 'account.analytic.account', 'search_read', 
-                                              [[('id', 'in', project_ids)]], {'fields': ['id', 'name']})
+                                              [[('id', 'in', project_ids)]], 
+                                              {'fields': ['id', 'name', 'active'], 'context': {'active_test': False}})
         aa_map = {a['id']: a['name'] for a in analytic_accounts}
+        # active=True -> Archived=False. active=False -> Archived=True
+        aa_archived_map = {a['id']: not a['active'] for a in analytic_accounts}
     except Exception as e:
         aa_map = {}
+        aa_archived_map = {}
         
     wip_grouped['Project_Name'] = wip_grouped['Project_ID'].apply(lambda x: aa_map.get(x, f"Proyecto {int(x)}"))
+    wip_grouped['Is_Archived'] = wip_grouped['Project_ID'].apply(lambda x: aa_archived_map.get(x, False))
 
     # 2. FACTURACIÓN REAL (INGRESOS)
     # Mantenemos account.analytic.line para ingresos pues es más eficiente buscar por account_id (Analytic ID)
@@ -791,6 +797,7 @@ def fetch_wip_data(uid, models, db, password, end_date):
         p_id = analytic_to_project_map.get(a_id)
         
         wip_val = row['WIP_Balance']
+        is_archived = row['Is_Archived']
         
         # Facturado Real
         inc_curr = income_map_current.get(a_id, 0.0)
@@ -816,6 +823,7 @@ def fetch_wip_data(uid, models, db, password, end_date):
         
         results.append({
             'Proyecto': row['Project_Name'],
+            'Archivado': 'Sí' if is_archived else 'No',
             'Saldo WIP (Gastos Pend.)': wip_val,
             'Costo Total': cost_val,
             'Provisiones (0.2145)': prov_val,
@@ -1183,7 +1191,7 @@ def vista_wip_report():
                                 f"""
                                 <div style="border-left: 3px solid #f0f2f6; padding-left: 10px;">
                                     <p style="font-size: 12px; color: #555; margin-bottom: 0px;">{label}</p>
-                                    <p style="font-size: 18px; font-weight: 600; color: #000; margin-top: 0px;">{value}</p>
+                                    <p style="font-size: 18px; font-weight: 600; color: #FFF; margin-top: 0px;">{value}</p>
                                 </div>
                                 """, 
                                 unsafe_allow_html=True
