@@ -712,8 +712,8 @@ def fetch_wip_data(uid, models, db, password, end_date):
     domain_prov = [
         ('company_id', '=', 1),
         ('account_id', 'in', project_ids),
-        ('general_account_id', '=', provisions_account_id), # 504
-        ('date', '<=', end_date_str)
+        ('general_account_id', '=', provisions_account_id) # 504
+        # ('date', '<=', end_date_str)
     ]
     
     provisions_map = {}
@@ -830,7 +830,7 @@ def fetch_wip_data(uid, models, db, password, end_date):
             'Inventario (Stock Actual)': inv_val,
             'Facturado Mes Actual': inc_curr,
             'Facturado Anterior': inc_prev,
-            'Total Estimado (CRC)': est_total_crc,
+            # 'Total Estimado (CRC)': est_total_crc,
             'Total Facturado': inc_curr + inc_prev,
             'Pendiente Facturar (Est.)': est_pending_crc
         })
