@@ -1174,12 +1174,25 @@ def vista_wip_report():
                         t_est_pende = df['Pendiente Facturar (Est.)'].sum()
                         t_inv = df['Inventario (Stock Actual)'].sum()
                         
-                        st.subheader(f"Estado Global al {cut_date}")
+                        st.markdown(f"##### Estado Global al {cut_date}")
                         c1, c2, c3, c4 = st.columns(4)
-                        c1.metric("Total en WIP", f"₡ {t_wip:,.2f}")
-                        c2.metric("Facturado Este Mes", f"₡ {t_fact_mes:,.2f}")
-                        c3.metric("Est. Pendiente Facturar", f"₡ {t_est_pende:,.2f}")
-                        c4.metric("Inventario Actual", f"₡ {t_inv:,.2f}")
+                        
+                        # Helper for smaller metric display
+                        def small_metric(col, label, value):
+                            col.markdown(
+                                f"""
+                                <div style="border-left: 3px solid #f0f2f6; padding-left: 10px;">
+                                    <p style="font-size: 12px; color: #555; margin-bottom: 0px;">{label}</p>
+                                    <p style="font-size: 18px; font-weight: 600; color: #000; margin-top: 0px;">{value}</p>
+                                </div>
+                                """, 
+                                unsafe_allow_html=True
+                            )
+
+                        small_metric(c1, "Total en WIP", f"₡ {t_wip:,.2f}")
+                        small_metric(c2, "Facturado Este Mes", f"₡ {t_fact_mes:,.2f}")
+                        small_metric(c3, "Est. Pendiente Facturar", f"₡ {t_est_pende:,.2f}")
+                        small_metric(c4, "Inventario Actual", f"₡ {t_inv:,.2f}")
                         st.divider()
                         
                         # DEFINICIÓN DE FORMATOS
