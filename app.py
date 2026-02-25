@@ -1361,6 +1361,33 @@ def fetch_ar_analytic_data(uid, models, db, password, cutoff_date):
     
     # Saldo
     df['Saldo'] = df.apply(lambda row: row['amount_residual_currency'] if row['amount_residual_currency'] != 0 else row['amount_residual'], axis=1)
+
+    # 5. TIPO DE CAMBIO (USD -> CRC)
+    # Buscamos la tasa del dólar (ID 2) para la fecha de corte
+    usd_rate = 0.002 # Fallback
+    try:
+        domain_rate = [
+            ('currency_id', '=', 2), # USD
+            ('name', '<=', cutoff_date_str),
+            ('company_id', 'in', [1, False])
+        ]
+        rates_data = models.execute_kw(db, uid, password, 'res.currency.rate', 'search_read', 
+                                       [domain_rate], 
+                                       {'fields': ['rate'], 'limit': 1, 'order': 'name desc'})
+        if rates_data:
+            usd_rate = rates_data[0]['rate']
+    except Exception as e:
+        pass
+
+    # Calcular Saldo USD
+    # Si la factura es en USD, usamos amount_residual_currency. Si es en CRC (o otra), usamos amount_residual * usd_rate.
+    def calculate_usd_balance(row):
+        if 'USD' in str(row['Moneda']):
+            return row['amount_residual_currency'] if row['amount_residual_currency'] != 0 else row['amount_residual'] * usd_rate
+        else:
+            return row['amount_residual'] * usd_rate
+
+    df['Saldo USD'] = df.apply(calculate_usd_balance, axis=1)
     
     # Renombrar y seleccionar
     df_result = df.rename(columns={
@@ -1368,7 +1395,7 @@ def fetch_ar_analytic_data(uid, models, db, password, cutoff_date):
         'date_maturity': 'Fecha Vencimiento'
     })
     
-    return df_result[['Cliente', 'Fecha Factura', 'Fecha Vencimiento', 'Proyecto', 'Monto Original', 'Saldo', 'Moneda']]
+    return df_result[['Cliente', 'Fecha Factura', 'Fecha Vencimiento', 'Proyecto', 'Monto Original', 'Saldo', 'Moneda', 'Saldo USD']]
 
 def vista_cuentas_por_cobrar_analitica():
     st.title("📈 Cuentas por Cobrar (Analítica)")
@@ -1392,8 +1419,14 @@ def vista_cuentas_por_cobrar_analitica():
                         st.subheader("Resumen por Cliente")
                         
                         # Agrupado por Cliente
-                        df_grouped = df.groupby(['Cliente', 'Moneda'])[['Saldo']].sum().reset_index()
-                        st.dataframe(df_grouped.style.format({'Saldo': "{:,.2f}"}), use_container_width=True)
+                        df_grouped = df.groupby(['Cliente', 'Moneda'])[['Saldo', 'Saldo USD']].sum().reset_index()
+                        st.dataframe(
+                            df_grouped.style.format({
+                                'Saldo': "{:,.2f}",
+                                'Saldo USD': "$ {:,.2f}"
+                            }), 
+                            use_container_width=True
+                        )
                         
                         st.divider()
                         st.subheader("Detalle de Facturas")
@@ -1404,7 +1437,8 @@ def vista_cuentas_por_cobrar_analitica():
                         st.dataframe(
                             df.style.format({
                                 'Monto Original': "{:,.2f}",
-                                'Saldo': "{:,.2f}"
+                                'Saldo': "{:,.2f}",
+                                'Saldo USD': "$ {:,.2f}"
                             }),
                             use_container_width=True
                         )
