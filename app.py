@@ -1258,13 +1258,180 @@ def vista_wip_report():
                     else:
                         st.info("No se encontraron saldos en la cuenta WIP para la fecha seleccionada.")
 
+# ==========================================
+# 6. REPORTE CUENTAS POR COBRAR (ANALÍTICA)
+# ==========================================
+
+def fetch_ar_analytic_data(uid, models, db, password, cutoff_date):
+    """
+    Trae facturas de clientes (out_invoice) con cuenta analítica relacionada.
+    Lógica de dos pasos:
+    1. Buscar qué facturas tienen líneas con distribución analítica.
+    2. Traer el saldo (receivable) de esas facturas.
+    """
+    cutoff_date_str = str(cutoff_date)
+    
+    # 1. Buscar líneas de facturas que tengan distribución analítica (usualmente las de ingreso)
+    domain_analytic = [
+        ('parent_state', '=', 'posted'),
+        ('company_id', '=', 1),
+        ('move_id.move_type', '=', 'out_invoice'),
+        ('analytic_distribution', '!=', False),
+        ('date', '<=', cutoff_date_str)
+    ]
+    
+    try:
+        # Solo necesitamos el move_id y la distribución
+        analytic_lines = models.execute_kw(db, uid, password, 'account.move.line', 'search_read', 
+                                           [domain_analytic], 
+                                           {'fields': ['move_id', 'analytic_distribution']})
+        if not analytic_lines: return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Error fetching Analytic Distribution Lines: {e}")
+        return pd.DataFrame()
+
+    # Mapear cada Factura (move_id) a su primer ID de Cuenta Analítica encontrado
+    invoice_to_analytic = {}
+    def extract_analytic_id(dist):
+        if not dist: return None
+        if isinstance(dist, dict) and dist:
+            return list(dist.keys())[0]
+        return None
+
+    for al in analytic_lines:
+        mid = al['move_id'][0]
+        aid = extract_analytic_id(al['analytic_distribution'])
+        if aid and mid not in invoice_to_analytic:
+            invoice_to_analytic[mid] = int(aid)
+
+    unique_move_ids = list(invoice_to_analytic.keys())
+
+    # 2. Traer líneas de CXC (Receivable) para esos move_ids
+    domain_receivable = [
+        ('move_id', 'in', unique_move_ids),
+        ('account_type', '=', 'asset_receivable'),
+        ('amount_residual', '!=', 0),
+        ('date', '<=', cutoff_date_str)
+    ]
+    
+    fields_receivable = ['partner_id', 'date_maturity', 'date', 'move_id', 
+                         'amount_residual', 'amount_residual_currency', 
+                         'currency_id', 'debit', 'credit']
+    
+    try:
+        lines = models.execute_kw(db, uid, password, 'account.move.line', 'search_read', [domain_receivable], {'fields': fields_receivable})
+        if not lines: return pd.DataFrame()
+        df = pd.DataFrame(lines)
+    except Exception as e:
+        st.error(f"Error fetching AR Receivable Data: {e}")
+        return pd.DataFrame()
+
+    # 3. Mapear Proyecto e Información de Cliente
+    # Mapeo de Nombres de Cuentas Analíticas
+    df['Analytic_ID'] = df['move_id'].apply(lambda x: invoice_to_analytic.get(x[0]))
+    analytic_ids = df['Analytic_ID'].dropna().unique().tolist()
+    
+    aa_map = {}
+    if analytic_ids:
+        try:
+            analytic_accounts = models.execute_kw(db, uid, password, 'account.analytic.account', 'search_read', 
+                                                  [[('id', 'in', analytic_ids)]], 
+                                                  {'fields': ['id', 'name'], 'context': {'active_test': False}})
+            aa_map = {a['id']: a['name'] for a in analytic_accounts}
+        except:
+            pass
+            
+    df['Proyecto'] = df['Analytic_ID'].map(aa_map).fillna("Sin Nombre")
+    df['Cliente'] = df['partner_id'].apply(lambda x: x[1] if x else 'Sin Cliente')
+    df['Moneda'] = df['currency_id'].apply(lambda x: x[1] if x else '')
+    
+    # 4. Traer Monto Original de la Factura (amount_total de account.move)
+    move_ids_unique = df['move_id'].apply(lambda x: x[0]).unique().tolist()
+    move_map_amount = {}
+    if move_ids_unique:
+        try:
+            moves_data = models.execute_kw(db, uid, password, 'account.move', 'search_read', 
+                                           [[('id', 'in', move_ids_unique)]], 
+                                           {'fields': ['id', 'amount_total']})
+            move_map_amount = {m['id']: m['amount_total'] for m in moves_data}
+        except:
+            pass
+            
+    df['Monto Original'] = df['move_id'].apply(lambda x: move_map_amount.get(x[0], 0.0))
+    
+    # Saldo
+    df['Saldo'] = df.apply(lambda row: row['amount_residual_currency'] if row['amount_residual_currency'] != 0 else row['amount_residual'], axis=1)
+    
+    # Renombrar y seleccionar
+    df_result = df.rename(columns={
+        'date': 'Fecha Factura',
+        'date_maturity': 'Fecha Vencimiento'
+    })
+    
+    return df_result[['Cliente', 'Fecha Factura', 'Fecha Vencimiento', 'Proyecto', 'Monto Original', 'Saldo', 'Moneda']]
+
+def vista_cuentas_por_cobrar_analitica():
+    st.title("📈 Cuentas por Cobrar (Analítica)")
+    st.markdown("Facturas pendientes que tienen una **Cuenta Analítica** asociada.")
+    st.divider()
+
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        st.subheader("Configuración")
+        f_corte = st.date_input("Fecha de Corte", datetime.date.today())
+        btn = st.button("Generar Reporte CXC", type="primary")
+
+    with col2:
+        if btn:
+            with st.spinner('Consultando Odoo...'):
+                uid, models, db, pwd = get_odoo_connection()
+                if uid:
+                    df = fetch_ar_analytic_data(uid, models, db, pwd, f_corte)
+                    
+                    if not df.empty:
+                        st.subheader("Resumen por Cliente")
+                        
+                        # Agrupado por Cliente
+                        df_grouped = df.groupby(['Cliente', 'Moneda'])[['Saldo']].sum().reset_index()
+                        st.dataframe(df_grouped.style.format({'Saldo': "{:,.2f}"}), use_container_width=True)
+                        
+                        st.divider()
+                        st.subheader("Detalle de Facturas")
+                        
+                        # Ordenar por Cliente
+                        df = df.sort_values(by='Cliente')
+                        
+                        st.dataframe(
+                            df.style.format({
+                                'Monto Original': "{:,.2f}",
+                                'Saldo': "{:,.2f}"
+                            }),
+                            use_container_width=True
+                        )
+                        
+                        # Excel Download
+                        output = io.BytesIO()
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            df.to_excel(writer, index=False, sheet_name='Detalle CXC Analitico')
+                            df_grouped.to_excel(writer, index=False, sheet_name='Resumen por Cliente')
+                            
+                        st.download_button(
+                            "📥 Descargar Excel CXC", 
+                            output.getvalue(), 
+                            f"CXC_Analitico_{f_corte}.xlsx", 
+                            "application/vnd.ms-excel"
+                        )
+                    else:
+                        st.info("No se encontraron facturas pendientes con cuenta analítica para la fecha seleccionada.")
+
 def main():
     st.sidebar.title("Menú")
     opciones = {
         "Inicio": vista_inicio, 
         "Antigüedad de Saldos": vista_reporte,
         "Ventas Retail": vista_ventas_retail,
-        "Reporte WIP": vista_wip_report
+        "Reporte WIP": vista_wip_report,
+        "CXC Analítica": vista_cuentas_por_cobrar_analitica
     }
     selection = st.sidebar.radio("Ir a:", list(opciones.keys()))
     opciones[selection]()
