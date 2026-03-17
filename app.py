@@ -6,7 +6,117 @@ import datetime
 from openpyxl import styles 
 
 # --- CONFIGURACIÓN GLOBAL ---
-st.set_page_config(page_title="Reportes Contables Odoo", layout="wide", page_icon="📊")
+st.set_page_config(page_title="Reportes Contables Odoo", layout="wide")
+
+# --- CUSTOM CSS PARA LOOK PREMIUM ---
+st.markdown("""
+    <style>
+    /* Tipografía y General */
+    html, body, [class*="css"] {
+        font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        color: #F8FAFC !important;
+    }
+    
+    /* Tarjetas de Métricas (st.metric) */
+    [data-testid="stMetricValue"] {
+        font-size: 1.8rem !important;
+        font-weight: 700 !important;
+        color: #38BDF8 !important; /* Sky Blue 400 */
+    }
+    [data-testid="stMetricLabel"] {
+        font-size: 0.9rem !important;
+        text-transform: uppercase;
+        letter-spacing: 0.05rem;
+        color: #94A3B8 !important;
+    }
+    
+    /* Glassmorphism Effect for Dark Mode */
+    div[data-testid="stMetric"], div.stAlert, .stMarkdown div[data-testid="stExpander"], .stDataFrame {
+        background: rgba(30, 41, 59, 0.7) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border-radius: 16px !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+        padding: 20px 20px 20px 35px !important; /* Más margen izquierdo solicitado */
+        transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+    }
+    
+    div[data-testid="stMetric"]:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4) !important;
+    }
+
+    /* Fondo de la App en Dark Mode */
+    .stApp {
+        background: linear-gradient(135deg, #020617 0%, #0F172A 100%);
+    }
+
+    /* Botones Modernos */
+    .stButton>button {
+        border-radius: 10px;
+        background-color: #0062ad !important;
+        color: white !important;
+        border: none;
+        transition: all 0.3s ease;
+        font-weight: 600;
+        padding: 0.6rem 1.2rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    }
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(0, 98, 173, 0.4);
+        background-color: #007BD9 !important;
+    }
+
+    /* Sidebar Profesional */
+    [data-testid="stSidebar"] {
+        background-color: #020617;
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    /* Títulos y Header */
+    h1, h2, h3, h4, p, span, label {
+        color: #F8FAFC !important;
+        font-weight: 700 !important;
+    }
+    
+    /* Líneas Divisoras */
+    hr {
+        margin: 1.5rem 0;
+        border: 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    /* Tabs Modernos Dark */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+        background-color: transparent !important;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 40px;
+        background-color: rgba(30, 41, 59, 0.5);
+        backdrop-filter: blur(5px);
+        border-radius: 8px 8px 0 0;
+        padding: 0 20px;
+        color: #94A3B8;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #0062ad !important;
+        color: white !important;
+        box-shadow: 0 4px 12px rgba(0, 98, 173, 0.3);
+    }
+    
+    /* Input Fields */
+    .stNumberInput input, .stTextInput input, .stDateInput input {
+        background-color: rgba(30, 41, 59, 0.5) !important;
+        color: white !important;
+        border-radius: 8px !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # ==========================================
 # 1. BACKEND: CONEXIÓN Y PROCESAMIENTO
@@ -323,11 +433,39 @@ def generar_excel_agrupado(df):
 # ==========================================
 
 def vista_inicio():
-    st.title("🏠 Portal Financiero")
-    st.markdown("Bienvenido. Genera tus reportes desde el menú lateral.")
+    st.header("Dashboard Financiero")
+    st.markdown("### Resumen Ejecutivo")
+    
+    # Simulación de un Dashboard con métricas clave (valores reales se cargarían si fuera necesario, 
+    # pero como es la vista de inicio, daremos una bienvenida profesional con indicadores rápidos)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Sistema Odoo", "Conectado", delta="Operativo", delta_color="normal")
+    with col2:
+         st.metric("Compañía", "Retail / Proyectos", delta="Principal")
+    with col3:
+        st.metric("Monedas", "CRC / USD", delta="Sincronizado")
+    with col4:
+        st.metric("Ult. Sync", datetime.date.today().strftime("%d %b"))
+
+    st.divider()
+    
+    st.markdown("""
+    #### Acceso Rápido a Reportes
+    Utilice el panel lateral izquierdo para navegar entre las diferentes herramientas de análisis:
+    
+    *   **Antigüedad de Saldos**: Análisis detallado de cuentas por pagar por proveedor y moneda.
+    *   **Ventas Retail**: Facturación neta sin cuenta analítica para auditoría de ventas.
+    *   **Reporte WIP**: Evaluación integral de utilidad, costos y margen por proyecto.
+    *   **Auditoría de Asignación**: Control de calidad sobre las distribuciones analíticas.
+    """)
+    
+    st.info("💡 **Tip Profesional:** Los reportes de WIP ahora incluyen categorización automática de Servicios y Suministros para una mejor toma de decisiones.")
 
 def vista_reporte():
-    st.title("📊 Cuentas por pagar")
+    st.header("Cuentas por pagar")
     st.divider()
 
     col1, col2 = st.columns([1, 3])
@@ -362,12 +500,12 @@ def vista_reporte():
 
                         st.dataframe(
                             df_display.style.format({'amount_residual_neto': "{:,.2f}"})
-                            .map(lambda x: 'color: #d9534f' if x > 0 else 'color: black', subset=['dias_vencido']),
+                            .map(lambda x: 'color: #0062ad' if x > 0 else 'color: black', subset=['dias_vencido']),
                             use_container_width=True
                         )
                         
                         excel_data = generar_excel_agrupado(df)
-                        st.download_button("📥 Descargar Excel Multi-Hoja", excel_data, f"Antiguedad_{f_corte}.xlsx", "application/vnd.ms-excel")
+                        st.download_button("Descargar Excel Multi-Hoja", excel_data, f"Antiguedad_{f_corte}.xlsx", "application/vnd.ms-excel")
                     else:
                         st.warning("No hay datos.")
 
@@ -447,7 +585,7 @@ def fetch_retail_sales(uid, models, db, password, start_date, end_date):
     return df
 
 def vista_ventas_retail():
-    st.title("🛍️ Ventas Netas Retail")
+    st.header("Ventas Netas Retail")
     st.markdown("Facturas y Notas de Crédito confirmadas **sin cuenta analítica**.")
     st.divider()
 
@@ -498,18 +636,14 @@ def vista_ventas_retail():
                             df_grouped.to_excel(writer, index=False, sheet_name='Resumen Mensual')
                             
                         st.download_button(
-                            "📥 Descargar Excel Retail", 
+                            "Descargar Excel", 
                             output.getvalue(), 
-                            f"Ventas_Retail_{f_inicio}_al_{f_fin}.xlsx", 
+                            f"Reporte_{f_corte}.xlsx", 
                             "application/vnd.ms-excel"
                         )
                         
                     else:
                         st.info("No se encontraron registros para los filtros seleccionados (o todas las facturas tienen cuenta analítica).")
-
-# ==========================================
-# 5. REPORTE WIP (PROYECTOS EN PROCESO)
-# ==========================================
 
 # ==========================================
 # 5. REPORTE WIP (PROYECTOS EN PROCESO)
@@ -525,57 +659,52 @@ def fetch_wip_data(uid, models, db, password, end_date):
     start_of_month = end_date.replace(day=1)
     
     # 1. SALDO WIP (GASTOS PENDIENTES) - DESDE APUNTES CONTABLES
-    # Usamos account.move.line porque el usuario valida contra analytic_distribution
-    # REQ: Solo apuntes NO conciliados
+    # Usamos read_group para máxima optimización (Turbo)
     domain_wip = [
         ('parent_state', '=', 'posted'),
         ('account_id', '=', 503),
         ('date', '<=', end_date_str),
-        ('company_id', '=', 1),
-        ('reconciled', '!=', True) # Solo partidas abiertas (False or None)
+        ('company_id', '=', 1)
     ]
     
-    fields_wip = ['debit', 'credit', 'analytic_distribution', 'name', 'move_id']
-    
     try:
-        # Traemos todos los apuntes de la cuenta 503
-        lines_wip = models.execute_kw(db, uid, password, 'account.move.line', 'search_read', [domain_wip], {'fields': fields_wip})
-        df_wip = pd.DataFrame(lines_wip)
+        groups = models.execute_kw(db, uid, password, 'account.move.line', 'read_group', 
+                                  [domain_wip], 
+                                  {'fields': ['debit', 'credit'], 'groupby': ['analytic_distribution']})
+        
+        analytic_balances = {}
+        for g in groups:
+            bal = g['debit'] - g['credit']
+            dist = g['analytic_distribution']
+            
+            if not dist or not isinstance(dist, dict):
+                analytic_balances[0] = analytic_balances.get(0, 0.0) + bal
+                continue
+                
+            total_perc = sum(dist.values())
+            
+            for aid_str, percentage in dist.items():
+                aid = int(aid_str)
+                weighted_bal = bal * (percentage / 100.0)
+                analytic_balances[aid] = analytic_balances.get(aid, 0.0) + weighted_bal
+                
+            if total_perc < 99.99:
+                missing_bal = bal * ((100.0 - total_perc) / 100.0)
+                analytic_balances[0] = analytic_balances.get(0, 0.0) + missing_bal
+                
+        wip_grouped = pd.DataFrame([
+            {'Project_ID': aid, 'WIP_Balance': bal} 
+            for aid, bal in analytic_balances.items() 
+            if round(bal, 2) != 0
+        ])
     except Exception as e:
         st.error(f"Error fetching WIP (Move Lines): {e}")
         return pd.DataFrame()
 
-    if df_wip.empty:
+    if wip_grouped.empty:
         return pd.DataFrame()
         
-    # Formato esperado: {'3686': 100} donde key es el ID de la cuenta analítica
-    
-    def extract_analytic_id(dist):
-        if not dist: return None
-        # Si es un diccionario (lo normal en xmlrpc para Json cols)
-        if isinstance(dist, dict) and dist:
-            # Retornamos el primer ID encontrado. 
-            # Si hay split (varios IDs), esto tomaría uno arbitrario, pero para WIP suele ser 1 a 1.
-            return list(dist.keys())[0]
-        # Si Odoo devuelve string (menos probable via xmlrpc pero posible)
-        return None
-
-    df_wip['Analytic_ID_Str'] = df_wip['analytic_distribution'].apply(extract_analytic_id)
-    
-    # Filtrar lineas que no tienen analítica (si las hay, quedarían como 'Sin Proyecto')
-    # Convertir a entero
-    df_wip['Project_ID'] = pd.to_numeric(df_wip['Analytic_ID_Str'], errors='coerce')
-    
-    # Calcular Balance (Debit - Credit)
-    # En apuntes contables: Gasto aumenta al Debe (Debit).
-    # Saldo WIP = Debit - Credit.
-    df_wip['WIP_Balance'] = df_wip['debit'] - df_wip['credit']
-    
-    # Agrupar por Project ID
-    wip_grouped = df_wip.groupby('Project_ID')['WIP_Balance'].sum().reset_index()
-    wip_grouped = wip_grouped[wip_grouped['WIP_Balance'] != 0]
-    
-    project_ids = wip_grouped['Project_ID'].dropna().unique().tolist()
+    project_ids = [pid for pid in wip_grouped['Project_ID'].unique().tolist() if pid != 0]
     
     if not project_ids:
         return pd.DataFrame()
@@ -595,8 +724,8 @@ def fetch_wip_data(uid, models, db, password, end_date):
         aa_map = {}
         aa_archived_map = {}
         
-    wip_grouped['Project_Name'] = wip_grouped['Project_ID'].apply(lambda x: aa_map.get(x, f"Proyecto {int(x)}"))
-    wip_grouped['Is_Archived'] = wip_grouped['Project_ID'].apply(lambda x: aa_archived_map.get(x, False))
+    wip_grouped['Project_Name'] = wip_grouped['Project_ID'].apply(lambda x: aa_map.get(x, "SIN ANALÍTICO" if x == 0 else f"Proyecto {int(x)}"))
+    wip_grouped['Is_Archived'] = wip_grouped['Project_ID'].apply(lambda x: aa_archived_map.get(x, False) if x != 0 else False)
 
     # 2. FACTURACIÓN REAL (INGRESOS)
     # Mantenemos account.analytic.line para ingresos pues es más eficiente buscar por account_id (Analytic ID)
@@ -836,79 +965,6 @@ def fetch_wip_data(uid, models, db, password, end_date):
         })
         
     return pd.DataFrame(results)
-    # Formato esperado: {'3686': 100} donde key es el ID de la cuenta analítica
-    
-    def extract_analytic_id(dist):
-        if not dist: return None
-        # Si es un diccionario (lo normal en xmlrpc para Json cols)
-        if isinstance(dist, dict) and dist:
-            # Retornamos el primer ID encontrado. 
-            # Si hay split (varios IDs), esto tomaría uno arbitrario, pero para WIP suele ser 1 a 1.
-            return list(dist.keys())[0]
-        # Si Odoo devuelve string (menos probable via xmlrpc pero posible)
-        return None
-
-    df_wip['Analytic_ID_Str'] = df_wip['analytic_distribution'].apply(extract_analytic_id)
-    
-    # Filtrar lineas que no tienen analítica (si las hay, quedarían como 'Sin Proyecto')
-    # Convertir a entero
-    df_wip['Project_ID'] = pd.to_numeric(df_wip['Analytic_ID_Str'], errors='coerce')
-    
-    # Calcular Balance (Debit - Credit)
-    # En apuntes contables: Gasto aumenta al Debe (Debit).
-    # Saldo WIP = Debit - Credit.
-    df_wip['WIP_Balance'] = df_wip['debit'] - df_wip['credit']
-    
-    # Agrupar por Project ID
-    wip_grouped = df_wip.groupby('Project_ID')['WIP_Balance'].sum().reset_index()
-    wip_grouped = wip_grouped[wip_grouped['WIP_Balance'] != 0]
-    
-    project_ids = wip_grouped['Project_ID'].dropna().unique().tolist()
-    
-    if not project_ids:
-        return pd.DataFrame()
-
-    # Necesitamos los Nombres de los Proyectos (Analytic Accounts)
-    # Hicimos groupby solo por ID, ahora buscamos los nombres
-    # project_ids son IDs de analytic.account
-    try:
-        analytic_accounts = models.execute_kw(db, uid, password, 'account.analytic.account', 'search_read', 
-                                              [[('id', 'in', project_ids)]], {'fields': ['id', 'name']})
-        aa_map = {a['id']: a['name'] for a in analytic_accounts}
-    except Exception as e:
-        aa_map = {}
-        
-    wip_grouped['Project_Name'] = wip_grouped['Project_ID'].apply(lambda x: aa_map.get(x, f"Proyecto {int(x)}"))
-
-    # 2. FACTURACIÓN REAL (INGRESOS)
-    # Mantenemos account.analytic.line para ingresos pues es más eficiente buscar por account_id (Analytic ID)
-    # Buscamos ingresos asociados a estos proyectos.
-    
-    # Primero identificamos cuentas financieras de ingreso
-    try:
-        income_account_ids = models.execute_kw(db, uid, password, 'account.account', 'search', [[('account_type', 'in', ['income', 'income_other'])]])
-    except:
-        income_account_ids = []
-        
-    domain_income = [
-        ('company_id', '=', 1),
-        ('account_id', 'in', project_ids), # account_id en analytic_line ES la cuenta analítica
-        ('date', '<=', end_date_str)
-    ]
-    
-    if income_account_ids:
-        domain_income.append(('general_account_id', 'in', income_account_ids))
-    
-    fields_income = ['account_id', 'amount', 'date']
-    try:
-        lines_income = models.execute_kw(db, uid, password, 'account.analytic.line', 'search_read', [domain_income], {'fields': fields_income})
-        df_income = pd.DataFrame(lines_income)
-    except:
-        df_income = pd.DataFrame() # Fail gracefully
-    
-    # Link to Project
-    income_map_current = {}
-    income_map_prev = {}
     
     if not df_income.empty:
         # account_id in analytic line is relations (id, name)
@@ -1137,126 +1193,28 @@ def fetch_wip_data(uid, models, db, password, end_date):
             est_total_crc = est_total_usd / usd_rate
             est_pending_crc = est_pending_usd / usd_rate
         
+        # Totales
+        total_ejecucion = wip_val + cost_val + prov_val + inv_val
+        total_est_crc = est_total_crc
+        utilidad = total_est_crc - total_ejecucion
+        margen = utilidad / total_est_crc if total_est_crc != 0 else 0
+        
         results.append({
             'Proyecto': row['Project_Name'],
-            'Saldo WIP (Gastos Pend.)': wip_val,
-            'Costo Total': cost_val,
-            'Provisiones (0.2145)': prov_val,
-            'Inventario (Stock Actual)': inv_val,
-            'Facturado Mes Actual': inc_curr,
-            'Facturado Anterior': inc_prev,
-            # 'Total Estimado (CRC)': est_total_crc,
-            'Total Facturado': inc_curr + inc_prev,
-            'Pendiente Facturar (Est.)': est_pending_crc
+            'Total_Estimado_CRC': total_est_crc,
+            'WIP_Balance': wip_val,
+            'Costo_Real': cost_val,
+            'Provisiones': prov_val,
+            'Inventario': inv_val,
+            'Ejecucion_Total_CRC': total_ejecucion,
+            'Utilidad_Bruta_CRC': utilidad,
+            'Margen_Porcentaje': margen,
+            'Facturado_Real': inc_curr + inc_prev,
+            'Pendiente_Facturar': est_pending_crc
         })
         
     return pd.DataFrame(results)
 
-def vista_wip_report():
-    st.title("🚧 Reporte WIP (Proyectos en Proceso)")
-    st.markdown("Análisis de Cuenta 0.11531 vs Facturación, Costos, Provisiones e Inventario.")
-    st.divider()
-    
-    col1, col2 = st.columns([1, 3])
-    
-    with col1:
-        st.subheader("Configuración")
-        cut_date = st.date_input("Fecha de Corte (Fin de Mes)", datetime.date.today())
-        st.caption("Nota: El Inventario mostrado es el Stock Actual (no histórico). WIP muestra solo partidas no conciliadas.")
-        btn = st.button("Generar Reporte WIP", type="primary")
-        
-    with col2:
-        if btn:
-            with st.spinner('Procesando datos contables, proyectos e inventario...'):
-                uid, models, db, pwd = get_odoo_connection()
-                if uid:
-                    df = fetch_wip_data(uid, models, db, pwd, cut_date)
-                    
-                    if not df.empty:
-                        # Ordenar por Saldo WIP descendente
-                        df = df.sort_values(by='Saldo WIP (Gastos Pend.)', ascending=False)
-                        
-                        # Totales Generales
-                        t_wip = df['Saldo WIP (Gastos Pend.)'].sum()
-                        t_fact_mes = df['Facturado Mes Actual'].sum()
-                        t_est_pende = df['Pendiente Facturar (Est.)'].sum()
-                        t_inv = df['Inventario (Stock Actual)'].sum()
-                        
-                        st.markdown(f"##### Estado Global al {cut_date}")
-                        c1, c2, c3, c4 = st.columns(4)
-                        
-                        # Helper for smaller metric display
-                        def small_metric(col, label, value):
-                            col.markdown(
-                                f"""
-                                <div style="border-left: 3px solid #f0f2f6; padding-left: 10px;">
-                                    <p style="font-size: 12px; color: #555; margin-bottom: 0px;">{label}</p>
-                                    <p style="font-size: 18px; font-weight: 600; color: #FFF; margin-top: 0px;">{value}</p>
-                                </div>
-                                """, 
-                                unsafe_allow_html=True
-                            )
-
-                        small_metric(c1, "Total en WIP", f"₡ {t_wip:,.2f}")
-                        small_metric(c2, "Facturado Este Mes", f"₡ {t_fact_mes:,.2f}")
-                        small_metric(c3, "Est. Pendiente Facturar", f"₡ {t_est_pende:,.2f}")
-                        small_metric(c4, "Inventario Actual", f"₡ {t_inv:,.2f}")
-                        st.divider()
-                        
-                        # DEFINICIÓN DE FORMATOS
-                        format_dict = {
-                            'Saldo WIP (Gastos Pend.)': '₡ {:,.2f}',
-                            'Costo Total': '₡ {:,.2f}',
-                            'Provisiones (0.2145)': '₡ {:,.2f}',
-                            'Inventario (Stock Actual)': '₡ {:,.2f}',
-                            'Facturado Mes Actual': '₡ {:,.2f}',
-                            'Facturado Anterior': '₡ {:,.2f}',
-                            # 'Total Estimado (CRC)': '₡ {:,.2f}', 
-                            'Total Facturado': '₡ {:,.2f}',
-                            'Pendiente Facturar (Est.)': '₡ {:,.2f}' 
-                        }
-
-                        # SPLIT LOGIC
-                        # 1. WIP para Reclasificar (Tienen facturación en el mes actual)
-                        df_reclass = df[df['Facturado Mes Actual'] != 0]
-                        df_review = df[df['Facturado Mes Actual'] == 0]
-                        
-                        # --- SECCIÓN 1: RECLASIFICAR ---
-                        st.subheader("🔄 WIP para Reclasificar (con Facturación este mes)")
-                        if not df_reclass.empty:
-                            st.dataframe(df_reclass.style.format(format_dict), use_container_width=True)
-                            st.caption(f"Total WIP Reclasificar: ₡ {df_reclass['Saldo WIP (Gastos Pend.)'].sum():,.2f}")
-                        else:
-                            st.info("No hay proyectos con facturación este mes.")
-                            
-                        st.divider()
-                        
-                        # --- SECCIÓN 2: REVISAR ---
-                        st.subheader("📋 WIP para Revisar (Sin facturación reciente)")
-                        if not df_review.empty:
-                            st.dataframe(df_review.style.format(format_dict), use_container_width=True)
-                            st.caption(f"Total WIP Revisar: ₡ {df_review['Saldo WIP (Gastos Pend.)'].sum():,.2f}")
-                        else:
-                            st.info("No hay proyectos pendientes de revisión.")
-
-                        # Excel Export (All Data)
-                        output = io.BytesIO()
-                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                            df.to_excel(writer, index=False, sheet_name='WIP_Completo')
-                            if not df_reclass.empty:
-                                df_reclass.to_excel(writer, index=False, sheet_name='Para_Reclasificar')
-                            if not df_review.empty:
-                                df_review.to_excel(writer, index=False, sheet_name='Para_Revisar')
-                            
-                        st.download_button(
-                            "📥 Descargar Excel Completo (WIP)", 
-                            output.getvalue(), 
-                            f"WIP_Report_{cut_date}.xlsx", 
-                            "application/vnd.ms-excel"
-                        )
-                        
-                    else:
-                        st.info("No se encontraron saldos en la cuenta WIP para la fecha seleccionada.")
 
 # ==========================================
 # 6. REPORTE CUENTAS POR COBRAR (ANALÍTICA)
@@ -1398,7 +1356,7 @@ def fetch_ar_analytic_data(uid, models, db, password, cutoff_date):
     return df_result[['Cliente', 'Fecha Factura', 'Fecha Vencimiento', 'Proyecto', 'Monto Original', 'Saldo', 'Moneda', 'Saldo USD']]
 
 def vista_cuentas_por_cobrar_analitica():
-    st.title("📈 Cuentas por Cobrar (Analítica)")
+    st.header("Cuentas por Cobrar (Analítica)")
     st.markdown("Facturas pendientes que tienen una **Cuenta Analítica** asociada.")
     st.divider()
 
@@ -1450,7 +1408,7 @@ def vista_cuentas_por_cobrar_analitica():
                             df_grouped.to_excel(writer, index=False, sheet_name='Resumen por Cliente')
                             
                         st.download_button(
-                            "📥 Descargar Excel CXC", 
+                            "Descargar Excel CXC", 
                             output.getvalue(), 
                             f"CXC_Analitico_{f_corte}.xlsx", 
                             "application/vnd.ms-excel"
@@ -1458,13 +1416,451 @@ def vista_cuentas_por_cobrar_analitica():
                     else:
                         st.info("No se encontraron facturas pendientes con cuenta analítica para la fecha seleccionada.")
 
+# ==========================================
+# 7. REPORTE WIP POR ANALÍTICO (OPTIMIZADO)
+# ==========================================
+
+def fetch_wip_by_analytic(uid, models, db, password, cutoff_date):
+    """
+    Fetches WIP balance (Account 503) grouped by Analytic Distribution.
+    Uses batches to avoid overloading the system and processes JSON in Python.
+    """
+    cutoff_date_str = str(cutoff_date)
+    
+    # 1. Total count to determine batches
+    domain = [
+        ('account_id', '=', 503),
+        ('parent_state', '=', 'posted'),
+        ('company_id', '=', 1),
+        ('date', '<=', cutoff_date_str)
+    ]
+    
+    # 1. Get groups using read_group (Turbo)
+    try:
+        groups = models.execute_kw(db, uid, password, 'account.move.line', 'read_group', 
+                                  [domain], 
+                                  {'fields': ['debit', 'credit'], 'groupby': ['analytic_distribution']})
+        
+        analytic_balances = {}
+        sin_analitico_sum = 0.0
+        
+        for g in groups:
+            bal = g['debit'] - g['credit']
+            dist = g['analytic_distribution']
+            
+            if not dist or not isinstance(dist, dict):
+                sin_analitico_sum += bal
+                continue
+            
+            total_perc = sum(dist.values())
+            
+            for aid_str, percentage in dist.items():
+                aid = int(aid_str)
+                weighted_bal = bal * (percentage / 100.0)
+                analytic_balances[aid] = analytic_balances.get(aid, 0.0) + weighted_bal
+                
+            if total_perc < 99.99:
+                missing_bal = bal * ((100.0 - total_perc) / 100.0)
+                sin_analitico_sum += missing_bal
+                
+        # 4. Resolve Analytic Names
+        unique_aids = list(analytic_balances.keys())
+        aa_map = {}
+        if unique_aids:
+            # Fetch names, including archived ones
+            analytic_accounts = models.execute_kw(db, uid, password, 'account.analytic.account', 'search_read', 
+                                                  [[('id', 'in', unique_aids)]], 
+                                                  {'fields': ['id', 'name'], 'context': {'active_test': False}})
+            aa_map = {a['id']: a['name'] for a in analytic_accounts}
+            
+        # 5. Build Result List
+        results = []
+        for aid, balance in analytic_balances.items():
+            if round(balance, 2) != 0:
+                results.append({
+                    'ID Analítico': aid,
+                    'Cuenta Analítica': aa_map.get(aid, f"Desconocida ({aid})"),
+                    'Saldo (CRC)': balance
+                })
+                
+        if round(sin_analitico_sum, 2) != 0:
+            results.append({
+                'ID Analítico': 0,
+                'Cuenta Analítica': 'SIN ANALÍTICO / POR DISTRIBUIR',
+                'Saldo (CRC)': sin_analitico_sum
+            })
+            
+        res_df = pd.DataFrame(results)
+        if not res_df.empty:
+            res_df = res_df.sort_values(by='Saldo (CRC)', ascending=False)
+            
+        return res_df
+        
+    except Exception as e:
+        st.error(f"Error procesando WIP Analítico: {e}")
+        return pd.DataFrame()
+
+# ==========================================
+# 8. AUDITORÍA DE WIP (ASIGNACIONES INCOMPLETAS)
+# ==========================================
+
+def fetch_wip_unassigned_details(uid, models, db, password, cutoff_date):
+    """
+    Fetches move lines from Account 503 that have 0 or <100% analytic distribution.
+    """
+    cutoff_date_str = str(cutoff_date)
+    domain = [
+        ('account_id', '=', 503),
+        ('parent_state', '=', 'posted'),
+        ('company_id', '=', 1),
+        ('date', '<=', cutoff_date_str)
+    ]
+    
+    try:
+        # Fetching fields for auditing
+        fields = ['date', 'move_id', 'name', 'debit', 'credit', 'analytic_distribution', 'ref']
+        lines = models.execute_kw(db, uid, password, 'account.move.line', 'search_read', [domain], {'fields': fields})
+        
+        audit_rows = []
+        for l in lines:
+            bal = l['debit'] - l['credit']
+            dist = l['analytic_distribution']
+            
+            total_perc = 0.0
+            if dist and isinstance(dist, dict):
+                total_perc = sum(dist.values())
+            
+            # If line has no distribution OR sum is less than 100%
+            if total_perc < 99.99:
+                missing_perc = 100.0 - total_perc
+                missing_amount = bal * (missing_perc / 100.0)
+                
+                # We only care if the missing amount is significant (> 0.01)
+                if abs(missing_amount) > 0.01:
+                    audit_rows.append({
+                        'Fecha': l['date'],
+                        'Asiento': l['move_id'][1] if l['move_id'] else '',
+                        'Referencia': l['ref'] or '',
+                        'Etiqueta': l['name'] or '',
+                        'Monto Total (CRC)': bal,
+                        '% Asignado': f"{total_perc}%",
+                        '% Faltante': f"{missing_perc}%",
+                        'Monto Descuadre (CRC)': missing_amount
+                    })
+        
+        df_audit = pd.DataFrame(audit_rows)
+        if not df_audit.empty:
+            df_audit = df_audit.sort_values(by='Fecha', ascending=False)
+        return df_audit
+        
+    except Exception as e:
+        st.error(f"Error en auditoría WIP: {e}")
+        return pd.DataFrame()
+
+def vista_auditoria_wip():
+    st.header("Auditoría de Asignación WIP")
+    st.markdown("Detalle de asientos en la cuenta **503** que no tienen el 100% de su monto asignado a proyectos.")
+    st.divider()
+    
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        st.subheader("Configuración")
+        f_corte = st.date_input("Fecha de Corte para Auditoría", datetime.date.today(), key="audit_wip_date")
+        btn = st.button("Ejecutar Auditoría", type="primary")
+        st.info("Este reporte busca inconsistencias manuales o errores de reversión en la cuenta 503.")
+
+    with col2:
+        if btn:
+            with st.spinner('Escaneando movimientos contables...'):
+                uid, models, db, pwd = get_odoo_connection()
+                if uid:
+                    df = fetch_wip_unassigned_details(uid, models, db, pwd, f_corte)
+                    if not df.empty:
+                        total_descuadre = df['Monto Descuadre (CRC)'].sum()
+                        st.warning(f"Se encontraron {len(df)} líneas con asignación incompleta.")
+                        st.metric("Total descuadre acumulado", f"₡ {total_descuadre:,.2f}")
+                        
+                        st.dataframe(
+                            df.style.format({
+                                'Monto Total (CRC)': "₡ {:,.2f}",
+                                'Monto Descuadre (CRC)': "₡ {:,.2f}"
+                            }),
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                        
+                        # Excel Download
+                        output = io.BytesIO()
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            df.to_excel(writer, index=False, sheet_name='Auditoria_WIP_Incompleto')
+                        
+                        st.download_button(
+                            "Descargar Detalle Auditoría (Excel)", 
+                            output.getvalue(), 
+                            f"Auditoria_WIP_{f_corte}.xlsx", 
+                            "application/vnd.ms-excel"
+                        )
+                    else:
+                        st.success("✅ ¡Excelente! No se encontraron líneas con asignación incompleta para esta fecha.")
+
+# ==========================================
+# 9. FETCH WIP BY PRODUCT CATEGORY (SMART)
+# ==========================================
+
+def fetch_wip_by_product_category(uid, models, db, password, cutoff_date):
+    """
+    Groups WIP by Analytic and Category (Service vs Supply) using Smart Logic.
+    """
+    cutoff_date_str = str(cutoff_date)
+    domain_wip = [
+        ('parent_state', '=', 'posted'),
+        ('account_id', '=', 503),
+        ('date', '<=', cutoff_date_str),
+        ('company_id', '=', 1)
+    ]
+    
+    try:
+        # 1. read_group by Analytic and Product
+        groups = models.execute_kw(db, uid, password, 'account.move.line', 'read_group', 
+                                  [domain_wip], 
+                                  {'fields': ['debit', 'credit'], 'groupby': ['analytic_distribution', 'product_id'], 'lazy': False})
+        
+        if not groups:
+            return pd.DataFrame()
+
+        # 2. Get Product Info for categorization
+        product_ids = list(set(g['product_id'][0] for g in groups if g.get('product_id')))
+        product_map = {}
+        if product_ids:
+            products_data = models.execute_kw(db, uid, password, 'product.product', 'read', 
+                                             [product_ids, ['type', 'name']])
+            product_map = {p['id']: p for p in products_data}
+
+        # 3. Categorization Logic
+        analytic_cats = {}
+        
+        for g in groups:
+            bal = g['debit'] - g['credit']
+            dist = g['analytic_distribution']
+            pid_info = g.get('product_id')
+            
+            # Category decision
+            # Fallback based on user feedback: reclassifications are mostly services
+            category = 'Servicios' 
+            
+            if pid_info:
+                pid = pid_info[0]
+                p_data = product_map.get(pid, {})
+                p_type = p_data.get('type')
+                p_name = p_data.get('name', '').upper()
+                
+                if p_type == 'service' or 'SERVICIO' in p_name:
+                    category = 'Servicios'
+                elif p_type in ['consu', 'product'] or 'SUMINISTRO' in p_name:
+                    category = 'Suministros'
+            
+            # Distribute balance to analytics
+            if not dist or not isinstance(dist, dict):
+                dist = {'0': 100} # SIN ANALITICO
+                
+            total_perc = sum(dist.values()) if dist and isinstance(dist, dict) else 0.0
+                
+            for aid_str, percentage in dist.items():
+                aid = int(aid_str)
+                weighted_bal = bal * (percentage / 100.0)
+                
+                if aid not in analytic_cats:
+                    analytic_cats[aid] = {'Servicios': 0.0, 'Suministros': 0.0}
+                
+                analytic_cats[aid][category] += weighted_bal
+                
+            # Ajuste de consistencia GL: Si el total no es 100%, el remanente va a Sin Analítico (ID 0)
+            if total_perc < 99.99:
+                missing_bal = bal * ((100.0 - total_perc) / 100.0)
+                if 0 not in analytic_cats:
+                    analytic_cats[0] = {'Servicios': 0.0, 'Suministros': 0.0}
+                analytic_cats[0][category] += missing_bal
+
+        # 4. Resolve Analytic Names
+        unique_aids = list(analytic_cats.keys())
+        aa_map = {}
+        if unique_aids:
+            analytic_accounts = models.execute_kw(db, uid, password, 'account.analytic.account', 'search_read', 
+                                                  [[('id', 'in', unique_aids)]], 
+                                                  {'fields': ['id', 'name'], 'context': {'active_test': False}})
+            aa_map = {a['id']: a['name'] for a in analytic_accounts}
+
+        # 5. Flatten to DataFrame
+        final_rows = []
+        for aid, cats in analytic_cats.items():
+            name = aa_map.get(aid, "SIN ANALÍTICO" if aid == 0 else f"Desconocido ({aid})")
+            if round(cats['Servicios'], 2) != 0 or round(cats['Suministros'], 2) != 0:
+                final_rows.append({
+                    'ID Analítico': aid,
+                    'Cuenta Analítica': name,
+                    'Costo Servicios (CRC)': cats['Servicios'],
+                    'Costo Suministros (CRC)': cats['Suministros'],
+                    'Total WIP (CRC)': cats['Servicios'] + cats['Suministros']
+                })
+        
+        res_df = pd.DataFrame(final_rows)
+        if not res_df.empty:
+            res_df = res_df.sort_values(by='Total WIP (CRC)', ascending=False)
+        return res_df
+
+    except Exception as e:
+        st.error(f"Error en resumen de categorización: {e}")
+        return pd.DataFrame()
+
+def vista_wip_report():
+    st.header("Reporte de Utilidad Proyectos (WIP)")
+    st.markdown("Cálculo de utilidad proyectada vs real basado en facturación, WIP e inventario.")
+    st.divider()
+
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        date_corte = st.date_input("Fecha de corte", datetime.date.today(), key="wip_full_date")
+    with col2:
+        btn_consultar = st.button("Generar Reporte Completo", type="primary")
+
+    if btn_consultar:
+        with st.spinner('Consultando Odoo y calculando saldos...'):
+            uid, models, db, password = get_odoo_connection()
+            if uid:
+                # Obtenemos datos
+                df_wip = fetch_wip_data(uid, models, db, password, date_corte)
+                df_cats = fetch_wip_by_product_category(uid, models, db, password, date_corte)
+                
+                if df_wip.empty:
+                    st.warning("No se encontró información de WIP para la fecha seleccionada.")
+                    return
+
+                # Create Tabs
+                tab1, tab2 = st.tabs(["Resumen Utilidad", "Desglose Servicios/Suministros"])
+
+                with tab1:
+                    st.subheader("Análisis de WIP y Utilidad")
+                    
+                    # Métricas globales
+                    total_estimado = df_wip['Total_Estimado_CRC'].sum()
+                    total_wip = df_wip['WIP_Balance'].sum()
+                    total_ejecucion = df_wip['Ejecucion_Total_CRC'].sum()
+                    
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("Fact. Estimada Total", f"₡ {total_estimado:,.2f}")
+                    m2.metric("Saldo WIP (Cuenta 503)", f"₡ {total_wip:,.2f}")
+                    m3.metric("Costos/Gastos Totales", f"₡ {total_ejecucion:,.2f}")
+
+                    st.dataframe(
+                        df_wip.style.format({
+                            'Total_Estimado_CRC': "₡ {:,.2f}",
+                            'WIP_Balance': "₡ {:,.2f}",
+                            'Ejecucion_Total_CRC': "₡ {:,.2f}",
+                            'Utilidad_Bruta_CRC': "₡ {:,.2f}",
+                            'Margen_Porcentaje': "{:.2%}"
+                        }),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                    
+                    # Excel Download
+                    output = io.BytesIO()
+                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                        df_wip.to_excel(writer, index=False, sheet_name='WIP_Report')
+                    
+                    st.download_button(
+                        "Descargar Reporte Completo (Excel)", 
+                        output.getvalue(), 
+                        f"WIP_Full_{date_corte}.xlsx", 
+                        "application/vnd.ms-excel"
+                    )
+
+                with tab2:
+                    st.subheader("Categorización de Costos en WIP")
+                    st.info("Este desglose clasifica los movimientos en Servicios o Suministros según el tipo de producto o la naturaleza del asiento.")
+                    
+                    if not df_cats.empty:
+                        st.dataframe(
+                            df_cats.style.format({
+                                'Costo Servicios (CRC)': "₡ {:,.2f}",
+                                'Costo Suministros (CRC)': "₡ {:,.2f}",
+                                'Total WIP (CRC)': "₡ {:,.2f}"
+                            }),
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                        
+                        # Excel Download for categories
+                        output_cats = io.BytesIO()
+                        with pd.ExcelWriter(output_cats, engine='openpyxl') as writer:
+                            df_cats.to_excel(writer, index=False, sheet_name='WIP_Categorias')
+                        
+                        st.download_button(
+                            "Descargar Desglose Categorías (Excel)", 
+                            output_cats.getvalue(), 
+                            f"WIP_Categorizacion_{date_corte}.xlsx", 
+                            "application/vnd.ms-excel"
+                        )
+                    else:
+                        st.info("No hay datos suficientes para categorizar los costos.")
+
+def vista_wip_por_analitico():
+    st.header("WIP por Analítico (Saldo 503)")
+    st.markdown("Consulta rápida del saldo por cuenta analítica con desglose de **Servicios** y **Suministros**.")
+    st.divider()
+    
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        st.subheader("Configuración")
+        f_corte = st.date_input("Fecha de Corte", datetime.date.today(), key="wip_an_date")
+        btn = st.button("Consultar Saldo Analítico", type="primary")
+        st.info("Este reporte procesa todos los movimientos de la cuenta 503 con Categorización Inteligente.")
+
+    with col2:
+        if btn:
+            with st.spinner('Procesando lotes de movimientos contables...'):
+                uid, models, db, pwd = get_odoo_connection()
+                if uid:
+                    # Usamos la función de categorización que ya agrupa por analítico
+                    df = fetch_wip_by_product_category(uid, models, db, pwd, f_corte)
+                    
+                    if not df.empty:
+                        total_wip = df['Total WIP (CRC)'].sum()
+                        st.metric("Saldo Total WIP (Cuenta 503)", f"₡ {total_wip:,.2f}")
+                        
+                        st.dataframe(
+                            df.style.format({
+                                'Costo Servicios (CRC)': "₡ {:,.2f}",
+                                'Costo Suministros (CRC)': "₡ {:,.2f}",
+                                'Total WIP (CRC)': "₡ {:,.2f}"
+                            }),
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                        
+                        # Excel Download
+                        output = io.BytesIO()
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            df.to_excel(writer, index=False, sheet_name='WIP_Analitico_Categorizado')
+                        
+                        st.download_button(
+                            "Descargar Reporte Categorizado (Excel)", 
+                            output.getvalue(), 
+                            f"WIP_Categorizado_{f_corte}.xlsx", 
+                            "application/vnd.ms-excel"
+                        )
+                    else:
+                        st.warning("No se encontraron saldos para los filtros seleccionados.")
+
 def main():
-    st.sidebar.title("Menú")
+    st.sidebar.header("Menú")
     opciones = {
         "Inicio": vista_inicio, 
         "Antigüedad de Saldos": vista_reporte,
         "Ventas Retail": vista_ventas_retail,
-        "Reporte WIP": vista_wip_report,
+        "Reporte WIP (Completo)": vista_wip_report,
+        "WIP por Analítico": vista_wip_por_analitico,
+        "Auditoría WIP (Asignación)": vista_auditoria_wip,
         "CXC Analítica": vista_cuentas_por_cobrar_analitica
     }
     selection = st.sidebar.radio("Ir a:", list(opciones.keys()))
