@@ -950,101 +950,27 @@ def fetch_wip_data(uid, models, db, password, end_date):
             est_total_crc = est_total_usd / usd_rate
             est_pending_crc = est_pending_usd / usd_rate
         
+        total_ejecucion = wip_val + cost_val + prov_val + inv_val
+        utilidad = est_total_crc - total_ejecucion
+        margen = utilidad / est_total_crc if est_total_crc != 0 else 0
+
         results.append({
             'Proyecto': row['Project_Name'],
-            'Archivado': 'Sí' if is_archived else 'No',
-            'Saldo WIP (Gastos Pend.)': wip_val,
-            'Costo Total': cost_val,
-            'Provisiones (0.2145)': prov_val,
-            'Inventario (Stock Actual)': inv_val,
-            'Facturado Mes Actual': inc_curr,
-            'Facturado Anterior': inc_prev,
-            # 'Total Estimado (CRC)': est_total_crc,
-            'Total Facturado': inc_curr + inc_prev,
-            'Pendiente Facturar (Est.)': est_pending_crc
+            'Total_Estimado_CRC': est_total_crc,
+            'WIP_Balance': wip_val,
+            'Costo_Real': cost_val,
+            'Provisiones': prov_val,
+            'Inventario': inv_val,
+            'Ejecucion_Total_CRC': total_ejecucion,
+            'Utilidad_Bruta_CRC': utilidad,
+            'Margen_Porcentaje': margen,
+            'Facturado_Real': inc_curr + inc_prev,
+            'Pendiente_Facturar': est_pending_crc,
+            'Archivado': 'Sí' if is_archived else 'No'
         })
         
     return pd.DataFrame(results)
     
-    if not df_income.empty:
-        # account_id in analytic line is relations (id, name)
-        df_income['Project_ID'] = df_income['account_id'].apply(lambda x: x[0] if x else None)
-        df_income['Net_Income'] = df_income['amount'] # Income is positive in analytic
-        df_income['Date'] = pd.to_datetime(df_income['date']).dt.date
-        
-        # Split Current vs Previous
-        current_mask = (df_income['Date'] >= start_of_month) & (df_income['Date'] <= end_date)
-        prev_mask = (df_income['Date'] < start_of_month)
-        
-        income_map_current = df_income[current_mask].groupby('Project_ID')['Net_Income'].sum().to_dict()
-        income_map_prev = df_income[prev_mask].groupby('Project_ID')['Net_Income'].sum().to_dict()
-
-    # 3. FACTURACIÓN ESTIMADA (x_facturas.proyectos) - EN DOLARES
-    # Fetch project.project to map Analytic -> Project ID (Task/Project Management ID)
-    domain_projects = [('analytic_account_id', 'in', project_ids)]
-    projects_data = models.execute_kw(db, uid, password, 'project.project', 'search_read', [domain_projects], {'fields': ['id', 'analytic_account_id']})
-    
-    # Map Analytic_ID -> Project_Project_ID
-    analytic_to_project_map = {p['analytic_account_id'][0]: p['id'] for p in projects_data if p['analytic_account_id']}
-    all_project_ids = list(analytic_to_project_map.values())
-    
-    estimated_total_map = {}
-    estimated_pending_map = {}
-    
-    if all_project_ids:
-        domain_est = [('x_studio_field_sFPxe', 'in', all_project_ids)]
-        # Fields: x_Monto, x_studio_field_sFPxe, x_studio_facturado (Boolean)
-        fields_est = ['x_studio_field_sFPxe', 'x_Monto', 'x_studio_facturado']
-        
-        try:
-            est_lines = models.execute_kw(db, uid, password, 'x_facturas.proyectos', 'search_read', [domain_est], {'fields': fields_est})
-            df_est = pd.DataFrame(est_lines)
-            
-            if not df_est.empty:
-                df_est['Proj_ID'] = df_est['x_studio_field_sFPxe'].apply(lambda x: x[0] if x else None)
-                
-                # Total Estimado (Todo)
-                estimated_total_map = df_est.groupby('Proj_ID')['x_Monto'].sum().to_dict()
-                
-                # Pendiente (Solo False)
-                # x_studio_facturado puede ser True, False, o None. Asumimos None = False (Pendiente)
-                df_est['Facturado'] = df_est['x_studio_facturado'].fillna(False)
-                df_pending = df_est[df_est['Facturado'] == False]
-                estimated_pending_map = df_pending.groupby('Proj_ID')['x_Monto'].sum().to_dict()
-                
-        except Exception as e:
-             st.error(f"Error fetching Estimated Billing: {e}")
-
-    # 4. DATOS ADICIONALES: COSTO Y PROVISIONES
-    # Costo: 0.533 (402), 0.511 (76), 0.517 (395), 0.531 (400), 0.521 (399)
-    # Provisiones: 0.2145 (504)
-    # Usamos account.analytic.line para eficiencia
-    
-    cost_account_ids = [76, 395, 399, 400, 402]
-    provisions_account_id = 504
-    
-    # Cost Data
-    domain_cost = [
-        ('company_id', '=', 1),
-        ('account_id', 'in', project_ids),
-        ('general_account_id', 'in', cost_account_ids),
-        ('date', '<=', end_date_str)
-    ]
-    
-    cost_map = {}
-    try:
-        lines_cost = models.execute_kw(db, uid, password, 'account.analytic.line', 'search_read', [domain_cost], {'fields': ['account_id', 'amount']})
-        if lines_cost:
-            df_cost = pd.DataFrame(lines_cost)
-            df_cost['Project_ID'] = df_cost['account_id'].apply(lambda x: x[0] if x else None)
-            # Costo en analítica suele ser negativo (-). Lo mostramos positivo absoluto o sumamos tal cual?
-            # User wants "Costo Total". Usually shown positive.
-            # Analytic Amount = -Cost. So we sum and negate, or sum absolute?
-            # Let's sum and negate.
-            df_cost['Amount_Inv'] = -df_cost['amount']
-            cost_map = df_cost.groupby('Project_ID')['Amount_Inv'].sum().to_dict()
-    except Exception as e:
-        pass
 
     # Provisions Data
     domain_prov = [
