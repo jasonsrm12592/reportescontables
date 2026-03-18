@@ -456,7 +456,7 @@ def vista_inicio():
     #### Acceso Rápido a Reportes
     Utilice el panel lateral izquierdo para navegar entre las diferentes herramientas de análisis:
     
-    *   **Antigüedad de Saldos**: Análisis detallado de cuentas por pagar por proveedor y moneda.
+    *   **Cuentas por pagar clasificado**: Análisis detallado de cuentas por pagar por proveedor y moneda.
     *   **Ventas Retail**: Facturación neta sin cuenta analítica para auditoría de ventas.
     *   **Reporte WIP**: Evaluación integral de utilidad, costos y margen por proyecto.
     *   **Auditoría de Asignación**: Control de calidad sobre las distribuciones analíticas.
@@ -505,7 +505,7 @@ def vista_reporte():
                         )
                         
                         excel_data = generar_excel_agrupado(df)
-                        st.download_button("Descargar Excel Multi-Hoja", excel_data, f"Antiguedad_{f_corte}.xlsx", "application/vnd.ms-excel")
+                        st.download_button("Descargar Excel Multi-Hoja", excel_data, f"CXP {f_corte}.xlsx", "application/vnd.ms-excel")
                     else:
                         st.warning("No hay datos.")
 
@@ -1782,11 +1782,11 @@ def main():
     st.sidebar.header("Menú")
     opciones = {
         "Inicio": vista_inicio, 
-        "Antigüedad de Saldos": vista_reporte,
+        "CxP Clasificado": vista_reporte,
         "Ventas Retail": vista_ventas_retail,
         "Reporte WIP (Completo)": vista_wip_report,
         "WIP por Analítico": vista_wip_por_analitico,
-        "Auditoría WIP (Asignación)": vista_auditoria_wip,
+        "Auditoría WIP (No Asignación)": vista_auditoria_wip,
         "CXC Analítica": vista_cuentas_por_cobrar_analitica
     }
     selection = st.sidebar.radio("Ir a:", list(opciones.keys()))
