@@ -456,7 +456,7 @@ def vista_inicio():
     #### Acceso Rápido a Reportes
     Utilice el panel lateral izquierdo para navegar entre las diferentes herramientas de análisis:
     
-    *   **Cuentas por pagar clasificado**: Análisis detallado de cuentas por pagar por proveedor y moneda.
+    *   **Antigüedad de Saldos**: Análisis detallado de cuentas por pagar por proveedor y moneda.
     *   **Ventas Retail**: Facturación neta sin cuenta analítica para auditoría de ventas.
     *   **Reporte WIP**: Evaluación integral de utilidad, costos y margen por proyecto.
     *   **Auditoría de Asignación**: Control de calidad sobre las distribuciones analíticas.
@@ -505,7 +505,7 @@ def vista_reporte():
                         )
                         
                         excel_data = generar_excel_agrupado(df)
-                        st.download_button("Descargar Excel Multi-Hoja", excel_data, f"CXP {f_corte}.xlsx", "application/vnd.ms-excel")
+                        st.download_button("Descargar Excel Multi-Hoja", excel_data, f"Antiguedad_{f_corte}.xlsx", "application/vnd.ms-excel")
                     else:
                         st.warning("No hay datos.")
 
@@ -1536,78 +1536,171 @@ def vista_auditoria_wip():
 def fetch_wip_by_product_category(uid, models, db, password, cutoff_date):
     """
     Groups WIP by Analytic and Category (Service vs Supply) using Smart Logic.
+    Enhanced version that inspects individual journal entries for all discharges.
     """
     cutoff_date_str = str(cutoff_date)
+    # Resolve WIP Account (503) - Fallback to 503
+    id_wip = 503
+    try:
+        acc_wip = models.execute_kw(db, uid, password, 'account.account', 'search_read', 
+                                    [[('code', '=ilike', '1.1.04.01.002%'), ('company_id', '=', 1)]], {'fields': ['id'], 'limit': 1})
+        if acc_wip: id_wip = acc_wip[0]['id']
+    except: pass
+
     domain_wip = [
         ('parent_state', '=', 'posted'),
-        ('account_id', '=', 503),
+        ('account_id', '=', id_wip),
         ('date', '<=', cutoff_date_str),
         ('company_id', '=', 1)
     ]
     
     try:
-        # 1. read_group by Analytic and Product
-        groups = models.execute_kw(db, uid, password, 'account.move.line', 'read_group', 
-                                  [domain_wip], 
-                                  {'fields': ['debit', 'credit'], 'groupby': ['analytic_distribution', 'product_id'], 'lazy': False})
+        # 1. Fetch ALL individual lines for WIP (Account 503) for the period
+        all_wip_lines = models.execute_kw(db, uid, password, 'account.move.line', 'search_read', 
+                                         [domain_wip], 
+                                         {'fields': ['move_id', 'debit', 'credit', 'analytic_distribution', 'product_id', 'name']})
         
-        if not groups:
-            return pd.DataFrame()
+        if not all_wip_lines:
+            return pd.DataFrame(), {}
 
-        # 2. Get Product Info for categorization
-        product_ids = list(set(g['product_id'][0] for g in groups if g.get('product_id')))
+        # 2. Identify moves that need inspection and collect product IDs
+        move_ids_to_inspect = set()
+        product_ids_to_fetch = set()
+        
+        for l in all_wip_lines:
+            pid = l.get('product_id')
+            if pid:
+                product_ids_to_fetch.add(pid[0])
+            
+            # We inspect moves if there's no product OR if it's a discharge (credit > 0)
+            if not pid or l['credit'] > 0:
+                move_ids_to_inspect.add(l['move_id'][0])
+        
+        # 3. Fetch Product Info
         product_map = {}
-        if product_ids:
+        if product_ids_to_fetch:
             products_data = models.execute_kw(db, uid, password, 'product.product', 'read', 
-                                             [product_ids, ['type', 'name']])
+                                             [list(product_ids_to_fetch), ['type', 'name']])
             product_map = {p['id']: p for p in products_data}
 
-        # 3. Categorization Logic
-        analytic_cats = {}
-        
-        for g in groups:
-            bal = g['debit'] - g['credit']
-            dist = g['analytic_distribution']
-            pid_info = g.get('product_id')
+        # 4. Resolve exact Account IDs for Cost Categories (Robustness)
+        ids_serv = [399]
+        ids_sumi = [402, 400]
+        ids_prov = [] # New: Provisión Costo Proyectos 0.2145
+        try:
+            domain_serv = [('code', '=ilike', '0.52%'), ('company_id', '=', 1)]
+            accs_serv = models.execute_kw(db, uid, password, 'account.account', 'search_read', [domain_serv], {'fields': ['id']})
+            ids_serv = list(set([a['id'] for a in accs_serv] + [399]))
             
-            # Category decision
-            # Fallback based on user feedback: reclassifications are mostly services
-            category = 'Servicios' 
-            
-            if pid_info:
-                pid = pid_info[0]
-                p_data = product_map.get(pid, {})
-                p_type = p_data.get('type')
-                p_name = p_data.get('name', '').upper()
-                
-                if p_type == 'service' or 'SERVICIO' in p_name:
-                    category = 'Servicios'
-                elif p_type in ['consu', 'product'] or 'SUMINISTRO' in p_name:
-                    category = 'Suministros'
-            
-            # Distribute balance to analytics
-            if not dist or not isinstance(dist, dict):
-                dist = {'0': 100} # SIN ANALITICO
-                
-            total_perc = sum(dist.values()) if dist and isinstance(dist, dict) else 0.0
-                
-            for aid_str, percentage in dist.items():
-                aid = int(aid_str)
-                weighted_bal = bal * (percentage / 100.0)
-                
-                if aid not in analytic_cats:
-                    analytic_cats[aid] = {'Servicios': 0.0, 'Suministros': 0.0}
-                
-                analytic_cats[aid][category] += weighted_bal
-                
-            # Ajuste de consistencia GL: Si el total no es 100%, el remanente va a Sin Analítico (ID 0)
-            if total_perc < 99.99:
-                missing_bal = bal * ((100.0 - total_perc) / 100.0)
-                if 0 not in analytic_cats:
-                    analytic_cats[0] = {'Servicios': 0.0, 'Suministros': 0.0}
-                analytic_cats[0][category] += missing_bal
+            domain_sumi = [('code', '=ilike', '0.53%'), ('company_id', '=', 1)]
+            accs_sumi = models.execute_kw(db, uid, password, 'account.account', 'search_read', [domain_sumi], {'fields': ['id']})
+            ids_sumi = list(set([a['id'] for a in accs_sumi] + [402, 400]))
 
-        # 4. Resolve Analytic Names
+            domain_prov = [('code', '=ilike', '0.2145%'), ('company_id', '=', 1)]
+            accs_prov = models.execute_kw(db, uid, password, 'account.account', 'search_read', [domain_prov], {'fields': ['id']})
+            ids_prov = [a['id'] for a in accs_prov]
+        except Exception:
+            pass
+
+        # 5. Fetch Counterpart Costs for the identified moves
+        # move_cost_mapping structure: { move_id: { analytic_id: { 'Servicios': amount, 'Suministros': amount, 'Provision': bool } } }
+        move_cost_mapping = {}
+        if move_ids_to_inspect:
+            cost_account_ids = ids_serv + ids_sumi + ids_prov
+            domain_counterpart = [
+                ('move_id', 'in', list(move_ids_to_inspect)),
+                ('account_id', 'in', cost_account_ids)
+            ]
+            cp_lines = models.execute_kw(db, uid, password, 'account.move.line', 'search_read', 
+                                                 [domain_counterpart], 
+                                                 {'fields': ['move_id', 'account_id', 'debit', 'credit', 'analytic_distribution']})
+            
+            for cp in cp_lines:
+                mid = cp['move_id'][0]
+                aid_fin = cp['account_id'][0]
+                amount = cp['debit'] - cp['credit'] 
+                dist = cp.get('analytic_distribution')
+                
+                if mid not in move_cost_mapping: move_cost_mapping[mid] = {}
+                if not dist or not isinstance(dist, dict): dist = {'0': 100}
+
+                for aid_str, percentage in dist.items():
+                    try:
+                        aid_ana = int(aid_str)
+                        weighted_amount = amount * (percentage / 100.0)
+                        if aid_ana not in move_cost_mapping[mid]:
+                            move_cost_mapping[mid][aid_ana] = {'Servicios': 0.0, 'Suministros': 0.0, 'Provision': 0.0}
+                        
+                        if aid_fin in ids_serv: move_cost_mapping[mid][aid_ana]['Servicios'] += weighted_amount
+                        if aid_fin in ids_sumi: move_cost_mapping[mid][aid_ana]['Suministros'] += weighted_amount
+                        if aid_fin in ids_prov: move_cost_mapping[mid][aid_ana]['Provision'] += weighted_amount
+                    except:
+                        continue
+
+        # 5. Final Categorization and Consolidation
+        analytic_cats = {}
+        analytic_sample_moves = {} # New: store sample move IDs for diagnostic
+        
+        for l in all_wip_lines:
+            bal = l['debit'] - l['credit']
+            dist = l.get('analytic_distribution')
+            if not dist or not isinstance(dist, dict): dist = {'0': 100}
+            
+            mid = l['move_id'][0]
+            pid_info = l.get('product_id')
+            
+            for aid_str, percentage in dist.items():
+                try:
+                    aid = int(aid_str)
+                    
+                    # TRACK SAMPLE MOVE
+                    if aid not in analytic_sample_moves: analytic_sample_moves[aid] = set()
+                    if len(analytic_sample_moves[aid]) < 3: analytic_sample_moves[aid].add(mid)
+
+                    weighted_bal = bal * (percentage / 100.0)
+                    
+                    if aid not in analytic_cats:
+                        analytic_cats[aid] = {'Servicios': 0.0, 'Suministros': 0.0, 'Provisión': 0.0, 'Alerta': ''}
+                    
+                    # 5a. Intentamos split por asiento (Priority)
+                    costs_by_ana = move_cost_mapping.get(mid, {})
+                    costs = costs_by_ana.get(aid, {'Servicios': 0.0, 'Suministros': 0.0, 'Provision': 0.0})
+                    
+                    prov_monto = costs.get('Provision', 0.0)
+                    if abs(prov_monto) > 0.01:
+                        analytic_cats[aid]['Alerta'] = '⚠️ Provisión'
+                        analytic_cats[aid]['Provisión'] += abs(prov_monto)
+                    
+                    # Fallback a costos generales en el mismo asiento if no specific ones
+                    if abs(costs['Servicios']) < 0.01 and abs(costs['Suministros']) < 0.01:
+                        costs = costs_by_ana.get(0, {'Servicios': 0.0, 'Suministros': 0.0})
+                    
+                    val_serv = costs['Servicios']
+                    val_sumi = costs['Suministros']
+                    total_cost_abs = abs(val_serv) + abs(val_sumi)
+                    
+                    if total_cost_abs > 0.01:
+                        ratio_serv_move = abs(val_serv) / total_cost_abs
+                        ratio_sumi_move = abs(val_sumi) / total_cost_abs
+                        analytic_cats[aid]['Servicios'] += weighted_bal * ratio_serv_move
+                        analytic_cats[aid]['Suministros'] += weighted_bal * ratio_sumi_move
+                    else:
+                        # 5b. Si no hay pistas en el asiento, usamos Producto (Second Priority)
+                        category = 'Servicios' # Default fallback
+                        if pid_info:
+                            p_data = product_map.get(pid_info[0], {})
+                            p_type = p_data.get('type', '')
+                            p_name = p_data.get('name', '').upper()
+                            if p_type == 'service' or 'SERVICIO' in p_name:
+                                category = 'Servicios'
+                            elif p_type in ['consu', 'product'] or 'SUMINISTRO' in p_name:
+                                category = 'Suministros'
+                        
+                        analytic_cats[aid][category] += weighted_bal
+                except:
+                    continue
+
+        # 6. Resolve Analytic Names
         unique_aids = list(analytic_cats.keys())
         aa_map = {}
         if unique_aids:
@@ -1616,13 +1709,20 @@ def fetch_wip_by_product_category(uid, models, db, password, cutoff_date):
                                                   {'fields': ['id', 'name'], 'context': {'active_test': False}})
             aa_map = {a['id']: a['name'] for a in analytic_accounts}
 
-        # 5. Flatten to DataFrame
+        # 7. Flatten to DataFrame
         final_rows = []
         for aid, cats in analytic_cats.items():
             name = aa_map.get(aid, "SIN ANALÍTICO" if aid == 0 else f"Desconocido ({aid})")
-            if round(cats['Servicios'], 2) != 0 or round(cats['Suministros'], 2) != 0:
+            
+            # DIAGNOSTIC FOR PASITO
+            if "PASITO" in name.upper() and st.session_state.get('user_role') == 'admin': # or just True for now
+                 pass # We could show something here but better not clutter the main function return
+            
+            if round(cats['Servicios'] + cats['Suministros'], 2) != 0:
                 final_rows.append({
                     'ID Analítico': aid,
+                    'Alerta': cats.get('Alerta', ''),
+                    'Provisión (CRC)': cats.get('Provisión', 0.0),
                     'Cuenta Analítica': name,
                     'Costo Servicios (CRC)': cats['Servicios'],
                     'Costo Suministros (CRC)': cats['Suministros'],
@@ -1635,7 +1735,9 @@ def fetch_wip_by_product_category(uid, models, db, password, cutoff_date):
         return res_df
 
     except Exception as e:
+        import traceback
         st.error(f"Error en resumen de categorización: {e}")
+        st.write(traceback.format_exc())
         return pd.DataFrame()
 
 def vista_wip_report():
@@ -1708,6 +1810,7 @@ def vista_wip_report():
                     if not df_cats.empty:
                         st.dataframe(
                             df_cats.style.format({
+                                'Provisión (CRC)': "₡ {:,.2f}",
                                 'Costo Servicios (CRC)': "₡ {:,.2f}",
                                 'Costo Suministros (CRC)': "₡ {:,.2f}",
                                 'Total WIP (CRC)': "₡ {:,.2f}"
@@ -1756,6 +1859,7 @@ def vista_wip_por_analitico():
                         
                         st.dataframe(
                             df.style.format({
+                                'Provisión (CRC)': "₡ {:,.2f}",
                                 'Costo Servicios (CRC)': "₡ {:,.2f}",
                                 'Costo Suministros (CRC)': "₡ {:,.2f}",
                                 'Total WIP (CRC)': "₡ {:,.2f}"
@@ -1772,7 +1876,7 @@ def vista_wip_por_analitico():
                         st.download_button(
                             "Descargar Reporte Categorizado (Excel)", 
                             output.getvalue(), 
-                            f"WIP_Categorizado_{f_corte}.xlsx", 
+                             f"WIP_Categorizado_{f_corte}.xlsx", 
                             "application/vnd.ms-excel"
                         )
                     else:
@@ -1782,11 +1886,11 @@ def main():
     st.sidebar.header("Menú")
     opciones = {
         "Inicio": vista_inicio, 
-        "CxP Clasificado": vista_reporte,
+        "Antigüedad de Saldos": vista_reporte,
         "Ventas Retail": vista_ventas_retail,
         "Reporte WIP (Completo)": vista_wip_report,
         "WIP por Analítico": vista_wip_por_analitico,
-        "Auditoría WIP (No Asignación)": vista_auditoria_wip,
+        "Auditoría WIP (Asignación)": vista_auditoria_wip,
         "CXC Analítica": vista_cuentas_por_cobrar_analitica
     }
     selection = st.sidebar.radio("Ir a:", list(opciones.keys()))
